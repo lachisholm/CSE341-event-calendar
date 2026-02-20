@@ -35,12 +35,29 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Google OAuth Strategy
+// Google OAuth Strategy
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback";
+
+// Basic validation to catch placeholder values (helps avoid sending literal placeholders)
+if (!googleClientId || googleClientId === "YOUR_ID_HERE" || googleClientId === "GOOGLE_CLIENT_ID" || googleClientId.includes("YOUR")) {
+  console.warn(
+    "Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder. Set a real client ID in environment variables."
+  );
+}
+if (!googleClientSecret || googleClientSecret === "YOUR_SECRET_HERE" || googleClientSecret === "GOOGLE_CLIENT_SECRET" || googleClientSecret.includes("YOUR")) {
+  console.warn(
+    "Warning: GOOGLE_CLIENT_SECRET looks unset or like a placeholder. Set a real client secret in environment variables."
+  );
+}
+
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback"
+      clientID: googleClientId,
+      clientSecret: googleClientSecret,
+      callbackURL: googleCallbackUrl
     },
     (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
