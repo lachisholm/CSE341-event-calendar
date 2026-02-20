@@ -10,7 +10,8 @@ const routes = require("./routes");
 const errorHandler = require("./middleware/errorHandler");
 
 const swaggerUi = require("swagger-ui-express");
-const swaggerFile = require("../swagger/swagger.json");
+const path = require("path");
+let swaggerFile;
 
 const app = express();
 
@@ -55,8 +56,13 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
-// Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
+// Swagger UI (load safely so missing file doesn't crash deploys)
+try {
+  swaggerFile = require(path.join(__dirname, "..", "swagger", "swagger.json"));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
+} catch (err) {
+  console.warn("Swagger file not found or failed to load, skipping /api-docs:", err.message);
+}
 
 // Auth Routes
 app.get(
