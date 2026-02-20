@@ -10,7 +10,7 @@ const routes = require("./routes");
 const errorHandler = require("./middleware/errorHandler");
 
 const swaggerUi = require("swagger-ui-express");
-const swaggerFile = require("../../swagger/swagger.json");
+const swaggerFile = require("../swagger/swagger.json");
 
 const app = express();
 
