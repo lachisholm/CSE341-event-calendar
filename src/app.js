@@ -12,7 +12,6 @@ const User = require("./models/User");
 
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
-const fs = require("fs");
 
 const app = express();
 
@@ -22,7 +21,7 @@ connectDB();
 // Middleware
 app.use(express.json());
 
-// Session middleware (required for OAuth)
+// Session middleware
 app.use(
   session({
     secret: "cse341_secret",
@@ -40,25 +39,6 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleCallbackUrl =
   process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback";
-
-// Warn if credentials look incorrect
-if (
-  !googleClientId ||
-  googleClientId.includes("YOUR") ||
-  googleClientId === "GOOGLE_CLIENT_ID"
-) {
-  console.warn("Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder.");
-}
-
-if (
-  !googleClientSecret ||
-  googleClientSecret.includes("YOUR") ||
-  googleClientSecret === "GOOGLE_CLIENT_SECRET"
-) {
-  console.warn(
-    "Warning: GOOGLE_CLIENT_SECRET looks unset or like a placeholder."
-  );
-}
 
 passport.use(
   new GoogleStrategy(
@@ -87,7 +67,7 @@ passport.use(
   )
 );
 
-// Store only MongoDB user id in session
+// Store only MongoDB id in session
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -101,30 +81,9 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Swagger UI (robust pathing for Render + local)
-(function registerSwagger() {
-  const candidates = [
-    path.resolve(process.cwd(), "swagger", "swagger.json"),
-    path.resolve(__dirname, "..", "swagger", "swagger.json")
-  ];
-
-  const swaggerPath = candidates.find((p) => fs.existsSync(p));
-
-  if (!swaggerPath) {
-    // Always register the route so it never becomes "Cannot GET /api-docs"
-    app.get("/api-docs", (req, res) => {
-      res.status(500).json({
-        error: "SwaggerNotFound",
-        message: "swagger.json not found in expected locations",
-        tried: candidates
-      });
-    });
-    return;
-  }
-
-  const swaggerFile = JSON.parse(fs.readFileSync(swaggerPath, "utf-8"));
-  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
-})();
+// Swagger (RESTORED ORIGINAL WORKING VERSION)
+const swaggerFile = require("../swagger/swagger.json");
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Auth Routes
 app.get(
@@ -154,7 +113,7 @@ app.get("/", (req, res) => {
 // API Routes
 app.use("/", routes);
 
-// Error Handler
+// Error handler
 app.use(errorHandler);
 
 module.exports = app;
