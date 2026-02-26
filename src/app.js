@@ -12,7 +12,7 @@ const User = require("./models/User");
 
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
-let swaggerFile;
+const fs = require("fs");
 
 const app = express();
 
@@ -36,7 +36,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Google OAuth Strategy
-
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleCallbackUrl =
@@ -48,9 +47,7 @@ if (
   googleClientId.includes("YOUR") ||
   googleClientId === "GOOGLE_CLIENT_ID"
 ) {
-  console.warn(
-    "Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder."
-  );
+  console.warn("Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder.");
 }
 
 if (
@@ -78,7 +75,7 @@ passport.use(
           user = await User.create({
             googleId: profile.id,
             displayName: profile.displayName,
-            email: profile.emails[0].value
+            email: profile.emails?.[0]?.value || "unknown@example.com"
           });
         }
 
@@ -104,21 +101,30 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Swagger UI
-try {
-  swaggerFile = require(path.join(
-    __dirname,
-    "..",
-    "swagger",
-    "swagger.json"
-  ));
+// Swagger UI (robust pathing for Render + local)
+(function registerSwagger() {
+  const candidates = [
+    path.resolve(process.cwd(), "swagger", "swagger.json"),
+    path.resolve(__dirname, "..", "swagger", "swagger.json")
+  ];
+
+  const swaggerPath = candidates.find((p) => fs.existsSync(p));
+
+  if (!swaggerPath) {
+    // Always register the route so it never becomes "Cannot GET /api-docs"
+    app.get("/api-docs", (req, res) => {
+      res.status(500).json({
+        error: "SwaggerNotFound",
+        message: "swagger.json not found in expected locations",
+        tried: candidates
+      });
+    });
+    return;
+  }
+
+  const swaggerFile = JSON.parse(fs.readFileSync(swaggerPath, "utf-8"));
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
-} catch (err) {
-  console.warn(
-    "Swagger file not found or failed to load:",
-    err.message
-  );
-}
+})();
 
 // Auth Routes
 app.get(
