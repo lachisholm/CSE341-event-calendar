@@ -11,7 +11,6 @@ const errorHandler = require("./middleware/errorHandler");
 const User = require("./models/User");
 
 const swaggerUi = require("swagger-ui-express");
-const path = require("path");
 
 const app = express();
 
@@ -34,7 +33,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Google OAuth Strategy
+// Google OAuth setup
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleCallbackUrl =
@@ -59,15 +58,14 @@ passport.use(
           });
         }
 
-        return done(null, user);
+        done(null, user);
       } catch (err) {
-        return done(err, null);
+        done(err, null);
       }
     }
   )
 );
 
-// Store only MongoDB id in session
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -81,7 +79,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Swagger (RESTORED ORIGINAL WORKING VERSION)
+// ✅ ORIGINAL WORKING SWAGGER (No path tricks)
 const swaggerFile = require("../swagger/swagger.json");
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
