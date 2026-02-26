@@ -8,6 +8,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const connectDB = require("./config/db");
 const routes = require("./routes");
 const errorHandler = require("./middleware/errorHandler");
+const User = require("./models/User");
 
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
@@ -38,17 +39,27 @@ app.use(passport.session());
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback";
+const googleCallbackUrl =
+  process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback";
 
-// Basic validation to catch placeholder values (helps avoid sending literal placeholders)
-if (!googleClientId || googleClientId === "YOUR_ID_HERE" || googleClientId === "GOOGLE_CLIENT_ID" || googleClientId.includes("YOUR")) {
+// Warn if credentials look incorrect
+if (
+  !googleClientId ||
+  googleClientId.includes("YOUR") ||
+  googleClientId === "GOOGLE_CLIENT_ID"
+) {
   console.warn(
-    "Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder. Set a real client ID in environment variables."
+    "Warning: GOOGLE_CLIENT_ID looks unset or like a placeholder."
   );
 }
-if (!googleClientSecret || googleClientSecret === "YOUR_SECRET_HERE" || googleClientSecret === "GOOGLE_CLIENT_SECRET" || googleClientSecret.includes("YOUR")) {
+
+if (
+  !googleClientSecret ||
+  googleClientSecret.includes("YOUR") ||
+  googleClientSecret === "GOOGLE_CLIENT_SECRET"
+) {
   console.warn(
-    "Warning: GOOGLE_CLIENT_SECRET looks unset or like a placeholder. Set a real client secret in environment variables."
+    "Warning: GOOGLE_CLIENT_SECRET looks unset or like a placeholder."
   );
 }
 
@@ -59,26 +70,54 @@ passport.use(
       clientSecret: googleClientSecret,
       callbackURL: googleCallbackUrl
     },
-    (accessToken, refreshToken, profile, done) => {
-      return done(null, profile);
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        let user = await User.findOne({ googleId: profile.id });
+
+        if (!user) {
+          user = await User.create({
+            googleId: profile.id,
+            displayName: profile.displayName,
+            email: profile.emails[0].value
+          });
+        }
+
+        return done(null, user);
+      } catch (err) {
+        return done(err, null);
+      }
     }
   )
 );
 
+// Store only MongoDB user id in session
 passport.serializeUser((user, done) => {
-  done(null, user);
+  done(null, user.id);
 });
 
-passport.deserializeUser((user, done) => {
-  done(null, user);
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
 });
 
-// Swagger UI (load safely so missing file doesn't crash deploys)
+// Swagger UI
 try {
-  swaggerFile = require(path.join(__dirname, "..", "swagger", "swagger.json"));
+  swaggerFile = require(path.join(
+    __dirname,
+    "..",
+    "swagger",
+    "swagger.json"
+  ));
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 } catch (err) {
-  console.warn("Swagger file not found or failed to load, skipping /api-docs:", err.message);
+  console.warn(
+    "Swagger file not found or failed to load:",
+    err.message
+  );
 }
 
 // Auth Routes
@@ -109,7 +148,7 @@ app.get("/", (req, res) => {
 // API Routes
 app.use("/", routes);
 
-// Error handler
+// Error Handler
 app.use(errorHandler);
 
 module.exports = app;
