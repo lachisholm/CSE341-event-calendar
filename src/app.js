@@ -8,9 +8,11 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const connectDB = require("./config/db");
 const routes = require("./routes");
 const errorHandler = require("./middleware/errorHandler");
-const User = require("./models/User");
 
 const swaggerUi = require("swagger-ui-express");
+const path = require("path");
+
+const User = require("./models/User");
 
 const app = express();
 
@@ -20,10 +22,10 @@ connectDB();
 // Middleware
 app.use(express.json());
 
-// Session middleware
+// Session middleware (required for OAuth)
 app.use(
   session({
-    secret: "cse341_secret",
+    secret: process.env.SESSION_SECRET || "cse341_secret",
     resave: false,
     saveUninitialized: false
   })
@@ -33,34 +35,36 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Google OAuth setup
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const googleCallbackUrl =
-  process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback";
-
+// Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
-      clientID: googleClientId,
-      clientSecret: googleClientSecret,
-      callbackURL: googleCallbackUrl
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL ||
+        "/auth/google/callback"
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        let user = await User.findOne({ googleId: profile.id });
+        let existingUser = await User.findOne({ googleId: profile.id });
 
-        if (!user) {
-          user = await User.create({
-            googleId: profile.id,
-            displayName: profile.displayName,
-            email: profile.emails?.[0]?.value || "unknown@example.com"
-          });
+        if (existingUser) {
+          return done(null, existingUser);
         }
 
-        done(null, user);
+        const newUser = new User({
+          googleId: profile.id,
+          displayName: profile.displayName,
+          email: profile.emails && profile.emails.length > 0
+            ? profile.emails[0].value
+            : null
+        });
+
+        await newUser.save();
+        return done(null, newUser);
       } catch (err) {
-        done(err, null);
+        return done(err, null);
       }
     }
   )
@@ -79,8 +83,14 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// ✅ ORIGINAL WORKING SWAGGER (No path tricks)
-const swaggerFile = require("../swagger/swagger.json");
+/*
+  🔥 THIS FIXES RENDER PATH ISSUE
+  app.js is inside /src
+  swagger folder is at project root
+*/
+const swaggerPath = path.join(__dirname, "..", "..", "swagger", "swagger.json");
+const swaggerFile = require(swaggerPath);
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 // Auth Routes
