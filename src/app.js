@@ -56,9 +56,10 @@ passport.use(
         const newUser = new User({
           googleId: profile.id,
           displayName: profile.displayName,
-          email: profile.emails && profile.emails.length > 0
-            ? profile.emails[0].value
-            : null
+          email:
+            profile.emails && profile.emails.length > 0
+              ? profile.emails[0].value
+              : null
         });
 
         await newUser.save();
@@ -84,11 +85,11 @@ passport.deserializeUser(async (id, done) => {
 });
 
 /*
-  🔥 THIS FIXES RENDER PATH ISSUE
+  Correct Swagger path:
   app.js is inside /src
-  swagger folder is at project root
+  swagger folder is also inside /src
 */
-const swaggerPath = path.join(__dirname, "..", "..", "swagger", "swagger.json");
+const swaggerPath = path.join(__dirname, "swagger", "swagger.json");
 const swaggerFile = require(swaggerPath);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerFile));
