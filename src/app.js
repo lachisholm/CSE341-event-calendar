@@ -89,7 +89,6 @@ passport.deserializeUser(async (id, done) => {
   app.js is inside /src
   swagger folder is also inside /src
 */
-const path = require("path");
 
 const swaggerPath = path.join(__dirname, "..", "swagger", "swagger.json");
 const swaggerFile = require(swaggerPath);
